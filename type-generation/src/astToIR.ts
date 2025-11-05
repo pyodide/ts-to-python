@@ -942,6 +942,10 @@ export class Converter {
     return result;
   }
 
+  typeParamDeclToIR(decl: TypeParameterDeclaration): TypeParamIR {
+    return typeParam(decl.getName());
+  }
+
   getTypeParamsFromDecl<T extends TypeParameteredNode>(decl: T): TypeParamIR[] {
     return getFilteredTypeParams(decl)
       .filter(
@@ -949,7 +953,7 @@ export class Converter {
           // Filter out type parameters that are already declared at class level
           !this.classTypeParams.has(p.getName()),
       )
-      .map((p) => typeParam(p.getName()));
+      .map((p) => this.typeParamDeclToIR(p));
   }
 
   getTypeParamsFromDecls<T extends TypeParameteredNode>(
@@ -1204,6 +1208,30 @@ export class Converter {
     });
   }
 
+  getInheritedTypeParams(prototypes: PropertySignature[]): TypeParamIR[] {
+    const inheritedTypeParams: Map<string, TypeParameterDeclaration> =
+      new Map();
+    for (const proto of prototypes) {
+      const typeNode = proto.getTypeNode();
+      if (!Node.isTypeReference(typeNode)) {
+        continue;
+      }
+      const ident = typeNode.getTypeName() as Identifier;
+      // Extract type parameters from the referenced interface
+      const interfaceDefs = ident
+        .getDefinitionNodes()
+        .filter(Node.isInterfaceDeclaration);
+      for (const interfaceDef of interfaceDefs) {
+        for (const param of getFilteredTypeParams(interfaceDef)) {
+          inheritedTypeParams.set(param.getName(), param);
+        }
+      }
+    }
+    return Array.from(inheritedTypeParams.values(), (x) =>
+      this.typeParamDeclToIR(x),
+    );
+  }
+
   membersDeclarationToIR(
     name: string,
     type: { getMembers: TypeLiteralNode["getMembers"] },
@@ -1217,8 +1245,6 @@ export class Converter {
     );
     let members: TypeElementTypes[] = [];
 
-    // Collect type parameters from interfaces referenced in prototypes
-    let inheritedTypeParams: string[] = [];
     for (const proto of prototypes) {
       const typeNode = proto.getTypeNode();
       if (Node.isTypeReference(typeNode)) {
@@ -1240,24 +1266,11 @@ export class Converter {
       const typeArgs = getInterfaceTypeArgs(ident);
       this.addNeededInterface(ident);
       bases.push(referenceType(name, typeArgs));
-
-      // Extract type parameters from the referenced interface
-      const interfaceDefs = ident
-        .getDefinitionNodes()
-        .filter(Node.isInterfaceDeclaration);
-      for (const interfaceDef of interfaceDefs) {
-        const interfaceTypeParams = getFilteredTypeParams(interfaceDef).map(
-          (p) => p.getName(),
-        );
-        inheritedTypeParams.push(...interfaceTypeParams);
-      }
     }
 
     // Use inherited type parameters if none were explicitly provided
     if (typeParams.length === 0) {
-      typeParams = Array.from(new Set(inheritedTypeParams), (x) =>
-        typeParam(x),
-      );
+      typeParams = this.getInheritedTypeParams(prototypes);
     }
     return this.interfaceToIR(
       name,
@@ -1379,7 +1392,7 @@ export class Converter {
         this.nameContext = [name];
         const aliasTypeParams = classified.decl
           .getTypeParameters()
-          .map((p) => typeParam(p.getName()));
+          .map((p) => this.typeParamDeclToIR(p));
         const typeNode = classified.decl.getTypeNode()!;
         const type = this.typeToIR(typeNode);
         this.nameContext = undefined;
