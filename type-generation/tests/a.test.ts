@@ -464,7 +464,7 @@ it("Type variable", () => {
   assert.strictEqual(res, expected);
 });
 
-function emitFile(text: string): string[] {
+function emitFile(text: string, name: string = "/a.ts"): string[] {
   const project = makeProject();
   project.createSourceFile("/a.ts", text);
   return emitFiles([project.getSourceFileOrThrow("/a.ts")]);
@@ -2491,7 +2491,8 @@ describe("emit", () => {
       );
     });
     it("Cloudflare Env", () => {
-      const res = emitFile(`
+      const project = makeProject();
+      const text = `
         declare namespace Cloudflare {
           interface GlobalProps {
             mainModule: typeof import("./src/entry");
@@ -2503,7 +2504,10 @@ describe("emit", () => {
         interface KVNamespace {
           get(x: string): string;
         }
-      `);
+      `;
+      const fileName = "/worker-configuration.d.ts";
+      project.createSourceFile(fileName, text);
+      const res = emitFiles([project.getSourceFileOrThrow(fileName)]);
       assert.strictEqual(
         removeTypeIgnores(res.slice(1).join("\n\n")),
         dedent(`
@@ -2511,6 +2515,25 @@ describe("emit", () => {
               FOO: KVNamespace_iface = ...
 
           class KVNamespace_iface(Protocol):
+              def get(self, x: str, /) -> str: ...
+              def __getitem__(self, x: str, /) -> str: ...
+        `).trim(),
+      );
+    });
+    it("Cloudflare DOState", () => {
+      const project = makeProject();
+      const text = `
+        interface DurableObjectState {
+          get(x: string): string;
+        }
+      `;
+      const fileName = "/worker-configuration.d.ts";
+      project.createSourceFile(fileName, text);
+      const res = emitFiles([project.getSourceFileOrThrow(fileName)]);
+      assert.strictEqual(
+        removeTypeIgnores(res.slice(1).join("\n\n")),
+        dedent(`
+          class DurableObjectState(Protocol):
               def get(self, x: str, /) -> str: ...
               def __getitem__(self, x: str, /) -> str: ...
         `).trim(),
