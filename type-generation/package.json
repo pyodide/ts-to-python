@@ -1,7 +1,7 @@
 {
   "name": "@pyodide/ts-to-python",
   "author": "Hood Chatham",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Converting TypeScript types to Python types to use with Pyodide",
   "license": "ISC",
   "keywords": [],
