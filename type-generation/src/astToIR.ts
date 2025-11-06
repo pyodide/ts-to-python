@@ -943,7 +943,12 @@ export class Converter {
   }
 
   typeParamDeclToIR(decl: TypeParameterDeclaration): TypeParamIR {
-    return typeParam(decl.getName());
+    const defaultNode = decl.getDefault();
+    let defaultType;
+    if (defaultNode) {
+      defaultType = this.typeToIR(defaultNode);
+    }
+    return typeParam(decl.getName(), undefined, defaultType);
   }
 
   getTypeParamsFromDecl<T extends TypeParameteredNode>(decl: T): TypeParamIR[] {
@@ -1536,6 +1541,27 @@ export function convertDecls(
   );
   for (const tl of flattenedTopLevels) {
     addMissingTypeArgsToTopLevel(tl, converter.adjustedIfaces);
+  }
+  // Hacky workaround for https://github.com/python/mypy/issues/20190. If a
+  // later type parameter default is SomeType[S] where S is an earlier type
+  // parameter, replace default with Any.
+  for (const tl of flattenedTopLevels) {
+    if (tl.kind === "interface" || tl.kind === "typeAlias") {
+      let params = new Set();
+      for (const param of tl.typeParams) {
+        params.add(param.name);
+        const d = param.default;
+        if (d?.kind !== "reference") {
+          continue;
+        }
+        if (
+          d.typeArgs[0]?.kind === "parameterReference" &&
+          params.has(d.typeArgs[0].name)
+        ) {
+          param.default = ANY_IR;
+        }
+      }
+    }
   }
   return { topLevels };
 }

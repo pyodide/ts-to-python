@@ -142,10 +142,51 @@ describe("typeToPython", () => {
       );
     });
   });
-  it("default type param", () => {
+  it("default type param 1", () => {
     const typeNode = getTypeNode("ReadableStream");
     const conversion = typeAstToString(typeNode, false, Variance.covar);
     assert.strictEqual(conversion, "ReadableStream[Any]");
+  });
+  it("default type param 2", () => {
+    const res = emitFile(`\
+        interface I<P=unknown> {
+          readonly p: P;
+        }
+        declare function f(): I;
+      `);
+    const conversion = removeTypeIgnores(res.slice(1).join("\n\n"));
+    assert.strictEqual(
+      conversion,
+      dedent(`\
+          def f() -> I_iface[Any]: ...
+
+          class I_iface[P=Any](Protocol):
+              @property
+              def p(self, /) -> P: ...
+        `).trim(),
+    );
+  });
+  it("default type param is earlier type param", () => {
+    // test workaround for https://github.com/python/mypy/issues/20190.
+    const res = emitFile(`\
+        interface I<P=unknown> {
+          readonly p: P;
+        }
+        declare interface X<S, T=I<S>> {};
+        declare var x: X;
+      `);
+    const conversion = removeTypeIgnores(res.slice(1).join("\n\n"));
+    assert.strictEqual(
+      conversion,
+      dedent(`\
+          class x[S, T=Any](_JsObject):
+              pass
+
+          class I_iface[P=Any](Protocol):
+              @property
+              def p(self, /) -> P: ...
+        `).trim(),
+    );
   });
   describe("variance", () => {
     it("variance 1", () => {
@@ -998,10 +1039,10 @@ describe("emit", () => {
         class X(_JsObject):
             @classmethod
             @overload
-            def new[R](self, source: R, strategy: S_iface[R] | None = None, /) -> X[R]: ...
+            def new[R=Any](self, source: R, strategy: S_iface[R] | None = None, /) -> X[R]: ...
             @classmethod
             @overload
-            def new[R](self, source: R, /, *, t: R) -> X[R]: ...
+            def new[R=Any](self, source: R, /, *, t: R) -> X[R]: ...
       `).trim(),
       );
     });
@@ -1025,10 +1066,10 @@ describe("emit", () => {
         class X(_JsObject):
             @classmethod
             @overload
-            def new[R](self, source: R, strategy: S_iface[str] | None = None, /) -> X[R]: ...
+            def new[R=Any](self, source: R, strategy: S_iface[str] | None = None, /) -> X[R]: ...
             @classmethod
             @overload
-            def new[R](self, source: R, /, *, t: str) -> X[R]: ...
+            def new[R=Any](self, source: R, /, *, t: str) -> X[R]: ...
       `).trim(),
       );
     });
@@ -1057,10 +1098,10 @@ describe("emit", () => {
         class X(_JsObject):
             @classmethod
             @overload
-            def new[R](self, source: R, strategy: S_iface[R] | None = None, /) -> Xiface_iface[R]: ...
+            def new[R=Any](self, source: R, strategy: S_iface[R] | None = None, /) -> Xiface_iface[R]: ...
             @classmethod
             @overload
-            def new[R](self, source: R, /, *, t: R, s: Size_iface[R]) -> Xiface_iface[R]: ...
+            def new[R=Any](self, source: R, /, *, t: R, s: Size_iface[R]) -> Xiface_iface[R]: ...
       `).trim(),
       );
     });
@@ -1086,7 +1127,7 @@ describe("emit", () => {
       assert.strictEqual(
         removeTypeIgnores(res[1]),
         dedent(`
-        class Xyz[R](Xyz_iface[R], _JsObject):
+        class Xyz[R=Any](Xyz_iface[R], _JsObject):
             @classmethod
             @overload
             def new(self, strategy: Options_iface[R] | None = None, /) -> Xyz[R]: ...
@@ -1140,10 +1181,10 @@ describe("emit", () => {
       assert.strictEqual(
         removeTypeIgnores(res.slice(1).join("\n\n")),
         dedent(`\
-        class T_iface[M](Protocol):
+        class T_iface[M=str](Protocol):
             m: M = ...
 
-        class T[M](T_iface[M], _JsObject):
+        class T[M=str](T_iface[M], _JsObject):
             pass
 
         class E_iface(Protocol):
@@ -1198,7 +1239,7 @@ describe("emit", () => {
       assert.strictEqual(
         removeTypeIgnores(res.slice(1).join("\n\n")),
         dedent(`\
-          type X[H] = Y[H] | X__Union1
+          type X[H=Any] = Y[H] | X__Union1
 
           def f() -> X[Any]: ...
 
@@ -1211,7 +1252,7 @@ describe("emit", () => {
           class X__Union1(Protocol):
               a: str = ...
 
-          class Y[H](I_iface, B_iface[H], Protocol):
+          class Y[H=Any](I_iface, B_iface[H], Protocol):
               pass
         `).trim(),
       );
@@ -1226,7 +1267,7 @@ describe("emit", () => {
         dedent(`\
           def f() -> F[None]: ...
 
-          class F[T](Protocol):
+          class F[T=None](Protocol):
               pass
         `).trim(),
       );
@@ -1333,7 +1374,7 @@ describe("emit", () => {
       dedent(`
         def f() -> IteratorObject_iface[str, None, None]: ...
 
-        class IteratorObject_iface[T, TReturn, TNext](JsGenerator[T, TNext, TReturn]):
+        class IteratorObject_iface[T, TReturn=Any, TNext=Any](JsGenerator[T, TNext, TReturn]):
             def __iter__(self, /) -> PyIterator[T]: ...
       `).trim(),
     );
@@ -1776,7 +1817,7 @@ describe("emit", () => {
           class X__Intersection1[T](Protocol):
               r: T = ...
 
-          class X[T](X__Intersection1[T], D_iface, Protocol):
+          class X[T=Any](X__Intersection1[T], D_iface, Protocol):
               pass
         `).trim(),
       );
@@ -2100,7 +2141,7 @@ describe("emit", () => {
           dedent(`
             def f() -> K_iface[str]: ...
 
-            class K_iface[Key](Protocol):
+            class K_iface[Key=str](Protocol):
                 def g(self, o: K_iface__g__Sig0__o__Partial__O_iface[None] | None = None, /) -> None: ...
 
             class K_iface__g__Sig0__o__Partial__O_iface[T](Protocol):
@@ -2315,7 +2356,7 @@ describe("emit", () => {
         dedent(`
           def f() -> RS_iface[str]: ...
 
-          class RS_iface[R](Protocol):
+          class RS_iface[R=Any](Protocol):
               def p[T](self, t: T, r: R, /) -> RS_iface[T]: ...
         `).trim(),
       );

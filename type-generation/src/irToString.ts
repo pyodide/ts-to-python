@@ -136,12 +136,20 @@ function pyParamToString({
   return `${name}: ${pyType}${maybeDefault}`;
 }
 
-function typeParamToString({ name, spread }: TypeParamIR): string {
+function typeParamToString({
+  name,
+  spread,
+  default: default_,
+}: TypeParamIR): string {
   let prefix = "";
   if (spread) {
     prefix = "*";
   }
-  return prefix + name;
+  let defaultStr = "";
+  if (default_) {
+    defaultStr = "=" + typeIRToString(default_);
+  }
+  return prefix + name + defaultStr;
 }
 
 function pySigToDeclarationString(

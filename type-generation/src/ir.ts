@@ -44,6 +44,7 @@ export type ParamIR = {
 export type TypeParamIR = {
   name: string;
   spread?: boolean;
+  default?: TypeIR;
 };
 export type SigIR = {
   params: ParamIR[];
@@ -136,8 +137,12 @@ export function parameterReferenceType(name: string): ParameterReferenceTypeIR {
   return { kind: "parameterReference", name };
 }
 
-export function typeParam(name: string, isSpread?: boolean) {
-  return { name, isSpread };
+export function typeParam(
+  name: string,
+  spread?: boolean,
+  default_?: TypeIR,
+): TypeParamIR {
+  return { name, spread, default: default_ };
 }
 
 export function spreadType(type: TypeIR): SpreadTypeIR {
