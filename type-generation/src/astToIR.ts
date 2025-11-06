@@ -1475,16 +1475,15 @@ export function convertDecls(
 
   // Adhoc logic to convert Cloudflare Env interface if present
   if (cf) {
-    const env = cf.getModule("Cloudflare")?.getInterface("Env");
-    if (env) {
-      pushTopLevel(converter.topLevelInterfaceToIR("Env", [env]));
+    function pushInterface(name: string, iface: InterfaceDeclaration | undefined) {
+      if (!iface) {
+        return;
+      }
+      pushTopLevel(converter.topLevelInterfaceToIR(name, [iface]));
     }
-    const doState = cf.getInterface("DurableObjectState");
-    if (doState) {
-      pushTopLevel(
-        converter.topLevelInterfaceToIR("DurableObjectState", [doState]),
-      );
-    }
+    pushInterface("Env", cf.getModule("Cloudflare")?.getInterface("Env"));
+    pushInterface("ExecutionContext", cf.getInterface("ExecutionContext"));
+    pushInterface("DurableObjectState", cf.getInterface("DurableObjectState"));
   }
 
   for (const varDecl of varDecls) {
