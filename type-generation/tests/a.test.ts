@@ -2561,11 +2561,14 @@ describe("emit", () => {
         `).trim(),
       );
     });
-    it("Cloudflare DOState", () => {
+    it("Cloudflare context", () => {
       const project = makeProject();
       const text = `
         interface DurableObjectState {
           get(x: string): string;
+        }
+        interface ExecutionContext {
+          a: string;
         }
       `;
       const fileName = "/worker-configuration.d.ts";
@@ -2574,6 +2577,9 @@ describe("emit", () => {
       assert.strictEqual(
         removeTypeIgnores(res.slice(1).join("\n\n")),
         dedent(`
+          class ExecutionContext(Protocol):
+              a: str = ...
+
           class DurableObjectState(Protocol):
               def get(self, x: str, /) -> str: ...
               def __getitem__(self, x: str, /) -> str: ...
