@@ -1333,6 +1333,27 @@ describe("emit", () => {
       );
     });
   });
+  it("Array of object literal type alias", () => {
+    const res = emitFile(`
+      type X = Array<{
+        id: string;
+        info: number;
+      }>;
+      declare function f(): X;
+    `);
+    assert.strictEqual(
+      removeTypeIgnores(res.slice(1).join("\n\n")),
+      dedent(`
+        type X = ArrayLike_iface[X__Arg0]
+
+        def f() -> X: ...
+
+        class X__Arg0(Protocol):
+            id: str = ...
+            info: int | float = ...
+      `).trim(),
+    );
+  });
   it("Array converted to ArrayLike_iface", () => {
     const res = emitFile(`declare function f(x: Array<string>): void`);
     assert.strictEqual(

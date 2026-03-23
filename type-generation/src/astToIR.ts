@@ -589,9 +589,12 @@ export class Converter {
 
       return parameterReferenceType(name);
     }
-    let typeArgs = getExpressionTypeArgs(ident, typeNode).map((ty) =>
-      this.typeToIR(ty),
-    );
+    let typeArgs = getExpressionTypeArgs(ident, typeNode).map((ty, index) => {
+      this.pushNameContext(`Arg${index}`);
+      const result = this.typeToIR(ty);
+      this.popNameContext();
+      return result;
+    });
     if (Node.isQualifiedName(ident)) {
       return ANY_IR;
     }
